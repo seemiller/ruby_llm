@@ -145,7 +145,6 @@ module RubyLLM
         params: @params,
         headers: @headers,
         schema: @schema,
-        input_files: @input_files,
         &wrap_streaming_block(&)
       )
 

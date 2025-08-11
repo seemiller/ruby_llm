@@ -7,7 +7,7 @@ module RubyLLM
   class Message
     ROLES = %i[system user assistant tool].freeze
 
-    attr_reader :role, :tool_calls, :tool_call_id, :input_tokens, :output_tokens, :model_id, :raw
+    attr_reader :role, :tool_calls, :tool_call_id, :input_tokens, :output_tokens, :model_id, :raw, :input_tokens
     attr_writer :content
 
     def initialize(options = {})
@@ -19,12 +19,12 @@ module RubyLLM
       @model_id = options[:model_id]
       @tool_call_id = options[:tool_call_id]
       @raw = options[:raw]
+      @input_tokens = options[:input_tokens]
 
       ensure_valid_role
     end
 
     def content
-      p "content: input_files: >#{@content.input_files}<"
       if @content.is_a?(Content) && @content.text && @content.attachments.empty? && (@content.input_files.nil? || @content.input_files.empty?)
         @content.text
       else
