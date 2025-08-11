@@ -43,7 +43,6 @@ module RubyLLM
     def complete(messages, tools:, temperature:, model:, params: {}, headers: {}, schema: nil, input_files: [],  &) # rubocop:disable Metrics/ParameterLists
       p "provider complete, input_files: >#{input_files}<"
       # find the first message with the role of user and set the input_files
-      messages.select! { |msg| msg.role == :user }.first.input_files = input_files
       p "messages: >#{messages}<"
       normalized_temperature = maybe_normalize_temperature(temperature, model)
 
