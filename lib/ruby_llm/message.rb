@@ -25,6 +25,7 @@ module RubyLLM
     end
 
     def content
+      p "content!!!!!"
       if @content.is_a?(Content) && @content.text && @content.attachments.empty? && (@content.input_files.nil? || @content.input_files.empty?)
         @content.text
       else
