@@ -35,6 +35,7 @@ module RubyLLM
 
     def post(url, payload, &)
       body = payload.is_a?(Hash) ? JSON.generate(payload, ascii_only: false) : payload
+      RubyLLM.logger.info "Sending request to #{url}: #{body}"
       @connection.post url, body do |req|
         req.headers.merge! @provider.headers if @provider.respond_to?(:headers)
         yield req if block_given?

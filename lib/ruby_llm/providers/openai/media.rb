@@ -30,6 +30,13 @@ module RubyLLM
             end
           end
 
+          # Add input_files if present
+          if content.input_files&.any?
+            content.input_files.each do |file_id|
+              parts << format_input_file(file_id)
+            end
+          end
+
           parts
         end
 
@@ -73,6 +80,13 @@ module RubyLLM
           {
             type: 'text',
             text: text
+          }
+        end
+
+        def format_input_file(file_id)
+          {
+            type: 'file',
+            file: { file_id: file_id }
           }
         end
       end

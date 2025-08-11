@@ -36,8 +36,9 @@ module RubyLLM
       }
     end
 
-    def ask(message = nil, with: nil, &)
-      add_message role: :user, content: Content.new(message, with)
+    def ask(message = nil, with: nil, input_files: [], &)
+      p "input_files: #{@input_files}"
+      add_message role: :user, content: Content.new(message, with, input_files)
       complete(&)
     end
 
@@ -135,6 +136,7 @@ module RubyLLM
     end
 
     def complete(&) # rubocop:disable Metrics/PerceivedComplexity
+      p "ruby_llm/chat acts_as complete"
       response = @provider.complete(
         messages,
         tools: @tools,
@@ -143,6 +145,7 @@ module RubyLLM
         params: @params,
         headers: @headers,
         schema: @schema,
+        input_files: @input_files,
         &wrap_streaming_block(&)
       )
 

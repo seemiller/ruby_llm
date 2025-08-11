@@ -74,6 +74,10 @@ module RubyLLM
       :unknown
     end
 
+    # def file_id?
+    #   @source.is_a?(String) && @source.start_with?('file-')
+    # end
+
     def image?
       RubyLLM::MimeType.image? mime_type
     end

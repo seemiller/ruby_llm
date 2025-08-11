@@ -148,6 +148,11 @@ module RubyLLM
         self
       end
 
+      def with_input_files(...)
+        to_llm.with_input_files(...)
+        self
+      end
+
       def on_new_message(&block)
         to_llm
 
@@ -182,21 +187,22 @@ module RubyLLM
         self
       end
 
-      def create_user_message(content, with: nil)
+      def create_user_message(content, with: nil, input_files: [])
         message_record = messages.create!(role: :user, content: content)
         persist_content(message_record, with) if with.present?
         message_record
       end
 
-      def ask(message, with: nil, &)
-        create_user_message(message, with:)
+      def ask(message, with: nil, input_files: [], &)
+        create_user_message(message, with:, input_files:)
         complete(&)
       end
 
       alias say ask
 
-      def complete(...)
-        to_llm.complete(...)
+      def complete(*args, **kwargs, &block)
+        p "acts_as complete #{args.inspect}, kwargs=#{kwargs.inspect}"
+        to_llm.complete(*args, **kwargs, &block)
       rescue RubyLLM::Error => e
         if @message&.persisted? && @message.content.blank?
           RubyLLM.logger.debug "RubyLLM: API call failed, destroying message: #{@message.id}"
@@ -340,6 +346,7 @@ module RubyLLM
       def extract_content
         return content unless respond_to?(:attachments) && attachments.attached?
 
+        p "extract_content: >#{content.inspect}<"
         RubyLLM::Content.new(content).tap do |content_obj|
           @_tempfiles = []
 
@@ -347,6 +354,10 @@ module RubyLLM
             tempfile = download_attachment(attachment)
             content_obj.add_attachment(tempfile, filename: attachment.filename.to_s)
           end
+
+          input_files.each do |file_id|
+             content_obj.add_input_file(file_id)
+           end
         end
       end
 
