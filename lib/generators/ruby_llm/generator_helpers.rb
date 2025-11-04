@@ -4,6 +4,17 @@ module RubyLLM
   module Generators
     # Shared helpers for RubyLLM generators
     module GeneratorHelpers
+      # Log separator for visual organization
+      LOG_SEPARATOR = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
+
+      # Map RubyLLM modules to their canonical type names
+      RUBY_LLM_MODULES = {
+        RubyLLM::ActiveRecord::ChatMethods => 'Chat',
+        RubyLLM::ActiveRecord::MessageMethods => 'Message',
+        RubyLLM::ActiveRecord::ModelMethods => 'Model',
+        RubyLLM::ActiveRecord::ToolCallMethods => 'ToolCall'
+      }.freeze
+
       def parse_model_mappings
         @model_names = {
           chat: 'Chat',
@@ -138,9 +149,96 @@ module RubyLLM
       end
 
       # Convert namespaced model names to proper table names
+      # First tries to load the actual model and get its table_name
+      # Falls back to convention-based inference if model doesn't exist yet
       # e.g., "Assistant::Chat" -> "assistant_chats" (not "assistant/chats")
       def table_name_for(model_name)
-        model_name.underscore.pluralize.tr('/', '_')
+        # Use cached model table names if available
+        return ruby_llm_model_tables[model_name] if ruby_llm_model_tables.key?(model_name)
+
+        # Not in Rails environment or no model found - try constantize anyway
+        begin
+          model_class = model_name.constantize
+          if model_class.respond_to?(:table_name)
+            table_name = model_class.table_name
+            puts "✓ Found via constantize: #{model_name} => #{table_name}"
+            return table_name
+          end
+        rescue NameError, LoadError => e
+          puts "⚠ Could not constantize #{model_name}: #{e.message}"
+        end
+
+        # Model doesn't exist yet (e.g., during initial install)
+        # or couldn't be loaded - fall back to convention-based inference
+        inferred_name = model_name.underscore.pluralize.tr('/', '_')
+        puts "→ Falling back to inference: #{model_name} => #{inferred_name}"
+        inferred_name
+      end
+
+      private
+
+      # Discover RubyLLM models by eager-loading Rails app
+      # Returns a hash of model_name => table_name for models using acts_as_* macros
+      def ruby_llm_model_tables
+        @ruby_llm_model_tables ||= begin
+          tables = {}
+          # Only scan if we're in a Rails environment with a bootable app
+          if defined?(Rails) && Rails.respond_to?(:root) && !Rails.env.nil?
+            puts LOG_SEPARATOR
+            puts 'Starting model discovery...'
+            puts LOG_SEPARATOR
+
+            begin
+              # Boot Rails environment if not already booted
+              if Rails.application.initialized?
+                puts "✓ Rails application already initialized"
+              else
+                puts "→ Booting Rails environment..."
+                require Rails.root.join('config/environment')
+                puts "✓ Rails environment booted"
+              end
+
+              # Eager-load all models so descendants are available
+              puts '→ Eager-loading models...'
+              Rails.application.eager_load!
+
+              # Find all AR models
+              base_class = defined?(ApplicationRecord) ? ApplicationRecord : ActiveRecord::Base
+              models = base_class.descendants.reject(&:abstract_class?)
+
+              puts '→ Scanning for RubyLLM models...'
+
+              models.each do |model_class|
+                # Check which RubyLLM module this model includes
+                ruby_llm_type = RUBY_LLM_MODULES.find do |mod, _type_name|
+                  model_class.included_modules.include?(mod)
+                end&.last
+
+                next unless ruby_llm_type
+
+                # Map the RubyLLM type (Chat, Message, etc.) to this app's table name
+                tables[ruby_llm_type] = model_class.table_name
+                puts "  ✓ #{ruby_llm_type} (#{model_class.name}) => #{model_class.table_name}"
+              end
+
+              puts LOG_SEPARATOR
+              puts "✓ Discovery complete: Found #{tables.count} RubyLLM models"
+              puts LOG_SEPARATOR
+            rescue StandardError => e
+              puts LOG_SEPARATOR
+              puts '✗ Error during model discovery'
+              puts LOG_SEPARATOR
+              puts "Error class: #{e.class}"
+              puts "Error message: #{e.message}"
+              puts '→ Will fall back to inference for table names'
+              puts LOG_SEPARATOR
+              # If eager loading fails, we'll fall back to inference
+              # This can happen during initial install when DB isn't set up yet
+            end
+          end
+
+          tables
+        end
       end
 
       # Convert model name to instance variable name

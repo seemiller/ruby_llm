@@ -146,6 +146,8 @@ module RubyLLM
 
         def acts_as_tool_call(message: :message, message_class: nil,
                               result: :result, result_class: nil)
+          include RubyLLM::ActiveRecord::ToolCallMethods
+
           class_attribute :message_association_name, :result_association_name, :message_class, :result_class
 
           self.message_association_name = message
